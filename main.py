@@ -30,6 +30,7 @@ class Main(object):
 
     def shutdown(self):
         print('stopping application')
+        self.db.stop()
         self.run_loop = False
 
 m = Main()

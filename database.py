@@ -1,6 +1,8 @@
 import json
 import pyrebase
 import re
+import requests
+#from threading import Timer
 
 try:
     from urllib.parse import urlencode, quote
@@ -23,7 +25,9 @@ class PyrebaseDatabase(object):
         self.token = self.auth.create_custom_token("pjchardt")
 
         self.auth_user()
-        #TODO: we need to start timer and refresh user token before an hour is up
+        #Start timer to reauth
+        #self.t = Timer(60.0, self.reauth_user)
+        #self.t.start()
 
         self.node_path = "{0}/{1}".format(self.paths_config['node_root'], self.paths_config['node'])
         #get current index and max index
@@ -31,11 +35,15 @@ class PyrebaseDatabase(object):
         self.max_index = self.db.child(self.node_path).child(self.paths_config['max_index']).get().val()
 
     def auth_user(self):
-            try:
-                self.user = self.auth.sign_in_with_custom_token(self.token)
-            except requests.exceptions.ConnectionError as conn_err:
-                print("failed to auth user, trying again")
-                self.auth_user()
+        try:
+            self.user = self.auth.sign_in_with_custom_token(self.token)
+        except requests.exceptions.ConnectionError as conn_err:
+            print("failed to auth user, trying again")
+            self.auth_user()
+
+    def reauth_user(self, image_path):
+        self.user = self.auth.refresh(self.user['refreshToken'])
+        self.send_image(image_path)
 
     def start(self):
         self.ee = EventEmitter()
@@ -44,14 +52,15 @@ class PyrebaseDatabase(object):
 
     def stop(self):
         print('shutting down firebase')
-        self.my_stream.close()
+        #self.my_stream.close()
+        self.t.abort()
 
     def stream_handler(self, message):
-            print(message["event"]) # put
-            print(message["path"]) # /-K7yGTTEp7O549EzTYtI
-            print(message["data"]) # {'title': 'Pyrebase', "body": "etc..."}
-            s = json.dumps(message["data"])
-            self.ee.emit("new_data_event", s)
+        print(message["event"]) # put
+        print(message["path"]) # /-K7yGTTEp7O549EzTYtI
+        print(message["data"]) # {'title': 'Pyrebase', "body": "etc..."}
+        s = json.dumps(message["data"])
+        self.ee.emit("new_data_event", s)
 
     def new_data_handler(self, args):
         print(args)
@@ -65,7 +74,14 @@ class PyrebaseDatabase(object):
     def send_image(self, image_path):
         storage_path = "{0}{1}.jpg".format(self.paths_config['storage_path'], self.current_index)
         # upload image to storage
-        result = self.storage.child(storage_path).put(image_path, self.user['idToken'])
+        #instead of reauth on timer we should catch error inside this function and then call reauth
+        try:
+            result = self.storage.child(storage_path).put(image_path, self.user['idToken'])
+        except requests.exceptions.HTTPError:
+            #reauth user, then call this method again
+            print("storage put failed with HTTPError, calling reauth_user to try and resolve")
+            reauth_user(image_path)
+
         #get url for downloading image
         firebase_url = "https://firebasestorage.googleapis.com/v0/b/"
         storage_bucket = self.config["storageBucket"]
