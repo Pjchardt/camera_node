@@ -1,3 +1,4 @@
+import os
 import json
 import pyrebase
 import re
@@ -13,11 +14,15 @@ from pymitter import EventEmitter
 
 class PyrebaseDatabase(object):
     def __init__(self):
-        with open('pyrebase_config.json') as f:
+        dirname, filename = os.path.split(os.path.abspath(__file__))
+        print(dirname)
+        with open("{0}{1}".format(dirname, "/pyrebase_config.json")) as f:
             self.config = json.load(f)
-        with open('database_paths_config.json') as f:
+        with open("{0}{1}".format(dirname, "/database_paths_config.json")) as f:
             self.paths_config = json.load(f)
-
+        
+        self.config['serviceAccount'] = "{0}/{1}".format(dirname, self.config['serviceAccount'])
+        print(self.config['serviceAccount'])
         self.firebase = pyrebase.initialize_app(self.config)
         self.auth = self.firebase.auth()
         self.db = self.firebase.database()
@@ -53,7 +58,7 @@ class PyrebaseDatabase(object):
     def stop(self):
         print('shutting down firebase')
         #self.my_stream.close()
-        self.t.abort()
+        #self.t.abort()
 
     def stream_handler(self, message):
         print(message["event"]) # put

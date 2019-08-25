@@ -1,3 +1,4 @@
+import os
 import subprocess
 import platform
 import time
@@ -11,6 +12,8 @@ class Main(object):
         #Setup input events
         IC.InputCommands(self.shutdown)
         #Connect to firebase
+        self.dirname, self.filename = os.path.split(os.path.abspath(__file__))
+        self.image_path = "{0}/{1}".format(self.dirname, "capture.jpg")
         self.db = DB.PyrebaseDatabase()
         self.cam = CM.PygameCameraModule()
         self.cam.start()
@@ -23,9 +26,9 @@ class Main(object):
         #Loop until 'esc' pressed
         while self.run_loop:
             #capture image
-            self.cam.capture_image("capture.jpg")
+            self.cam.capture_image(self.image_path)
             #send image, get url, and save to database
-            self.db.send_image("capture.jpg")
+            self.db.send_image(self.image_path)
             time.sleep(60*5)
 
     def shutdown(self):
@@ -33,5 +36,6 @@ class Main(object):
         self.db.stop()
         self.run_loop = False
 
+time.sleep(30) #wait a bit to start
 m = Main()
 m.start()
