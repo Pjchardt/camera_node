@@ -35,9 +35,6 @@ class PyrebaseDatabase(object):
         #self.t.start()
 
         self.node_path = "{0}/{1}".format(self.paths_config['node_root'], self.paths_config['node'])
-        #get current index and max index
-        self.current_index = self.db.child(self.node_path).child(self.paths_config['index']).get().val()
-        self.max_index = self.db.child(self.node_path).child(self.paths_config['max_index']).get().val()
 
     def auth_user(self):
         try:
@@ -67,6 +64,12 @@ class PyrebaseDatabase(object):
         s = json.dumps(message["data"])
         self.ee.emit("new_data_event", s)
 
+    def get_indexes(self):
+        #get current index and max index
+        i = self.db.child(self.node_path).child(self.paths_config['index']).get().val()
+        max_i = self.db.child(self.node_path).child(self.paths_config['max_index']).get().val()
+        return i, max_i 
+
     def new_data_handler(self, args):
         print(args)
 
@@ -77,7 +80,8 @@ class PyrebaseDatabase(object):
         self.db.child(node).update(data);
 
     def send_image(self, image_path):
-        storage_path = "{0}{1}.jpg".format(self.paths_config['storage_path'], self.current_index)
+        current_index, max_index = self.get_indexes()
+        storage_path = "{0}{1}.jpg".format(self.paths_config['storage_path'], current_index)
         # upload image to storage
         #instead of reauth on timer we should catch error inside this function and then call reauth
         try:
@@ -94,6 +98,6 @@ class PyrebaseDatabase(object):
         url = "{0}{1}/o/{2}?alt=media&token={3}".format(firebase_url, storage_bucket, quote(storage_path, safe=''), token)
         print ("Image sent. url = " + url)
         #update database with url
-        self.db.child(self.node_path).update({"url_{0}".format(self.current_index) : url});
-        self.current_index = (self.current_index + 1) % self.max_index
-        self.db.child(self.node_path).update({self.paths_config['index'] : self.current_index })
+        self.db.child(self.node_path).update({"url_{0}".format(current_index) : url});
+        current_index = (current_index + 1) % max_index
+        self.db.child(self.node_path).update({self.paths_config['index'] : current_index })
